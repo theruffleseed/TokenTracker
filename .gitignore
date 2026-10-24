@@ -1,0 +1,52 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# next.js
+.next/
+out/
+next-env.d.ts
+
+# production
+build/
+dist/
+
+# testing
+coverage/
+playwright-report/
+test-results/
+blob-report/
+.vitest/
+
+# env
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# prisma
+prisma/*.db
+prisma/*.db-journal
+
+# capacitor / android
+android/
+ios/
+.capacitor/
+
+# editors / os
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+
+# logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# misc
+*.tsbuildinfo
+/tmp/

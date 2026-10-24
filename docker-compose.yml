@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: tokentracker-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: tokentracker
+      POSTGRES_PASSWORD: tokentracker
+      POSTGRES_DB: tokentracker
+    ports:
+      - "5433:5432"
+    volumes:
+      - tokentracker_pg:/var/lib/postgresql/data
+      - ./docker/init-test-db.sql:/docker-entrypoint-initdb.d/10-init-test-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tokentracker -d tokentracker"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  tokentracker_pg:

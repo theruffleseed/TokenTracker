@@ -1,0 +1,265 @@
+// TokenTracker data model.
+// All timestamps are stored in UTC. Money and metered values use fixed-precision
+// decimals; percentages are stored as 0-100 values, never 0-1 fractions.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Provider {
+  OPENCODE_GO
+  TOKENHARBOR
+  RIVER_AI
+  COMMANDCODE
+}
+
+enum AuthMode {
+  LIVE
+  MANUAL
+}
+
+enum ConnectionStatus {
+  NEVER_CONNECTED
+  CONNECTED
+  NEEDS_ATTENTION
+  ERROR
+  MANUAL
+  DISCONNECTED
+}
+
+enum DataSource {
+  LIVE
+  MANUAL
+  CACHED
+  ESTIMATED
+}
+
+enum QuotaWindowType {
+  ROLLING_5H
+  DAILY
+  WEEKLY
+  MONTHLY
+  OTHER
+}
+
+enum QuotaUnit {
+  TOKENS
+  REQUESTS
+  CREDITS
+  USD
+  PERCENT
+  PROVIDER_DEFINED
+}
+
+enum CreditType {
+  WALLET
+  PROMOTIONAL
+  REWARD
+  INCLUDED_ALLOWANCE
+  OTHER
+}
+
+enum RefreshStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+  SKIPPED
+  CANCELLED
+}
+
+enum RefreshTrigger {
+  SCHEDULED
+  MANUAL
+  RETRY
+}
+
+enum AuditEventType {
+  USER_REGISTERED
+  USER_LOGGED_IN
+  USER_LOGGED_OUT
+  SESSIONS_REVOKED
+  PROVIDER_CONNECTED
+  PROVIDER_UPDATED
+  PROVIDER_DISCONNECTED
+  CREDENTIAL_UPDATED
+  MANUAL_SNAPSHOT_ADDED
+  REFRESH_QUEUED
+  REFRESH_COMPLETED
+  REFRESH_FAILED
+  SETTINGS_UPDATED
+  DATA_EXPORTED
+  RETENTION_PURGED
+}
+
+model User {
+  id                 String    @id @default(uuid()) @db.Uuid
+  email              String    @unique
+  passwordHash       String
+  displayName        String?
+  timezone           String    @default("UTC")
+  refreshIntervalMin Int       @default(30)
+  quotaRetentionDays Int       @default(90)
+  usageRetentionDays Int       @default(180)
+  auditRetentionDays Int       @default(365)
+  sessionVersion     Int       @default(0)
+  createdAt          DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime  @updatedAt @db.Timestamptz(6)
+
+  accounts   ProviderAccount[]
+  sessions   Session[]
+  auditEvents AuditEvent[]
+}
+
+model Session {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @db.Uuid
+  tokenHash  String   @unique
+  expiresAt  DateTime @db.Timestamptz(6)
+  createdAt  DateTime @default(now()) @db.Timestamptz(6)
+  lastUsedAt DateTime @default(now()) @db.Timestamptz(6)
+  userAgent  String?  @db.VarChar(256)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model ProviderAccount {
+  id                   String           @id @default(uuid()) @db.Uuid
+  userId               String           @db.Uuid
+  provider             Provider
+  authMode             AuthMode         @default(MANUAL)
+  displayName          String           @db.VarChar(80)
+  planName             String?          @db.VarChar(80)
+  accountLabel         String?          @db.VarChar(160)
+  status               ConnectionStatus @default(NEVER_CONNECTED)
+  credentialCiphertext String?
+  credentialIv         String?
+  credentialTag        String?
+  credentialKeyVersion Int?
+  credentialHint       String?          @db.VarChar(32)
+  refreshIntervalMin   Int              @default(30)
+  lastSyncedAt         DateTime?        @db.Timestamptz(6)
+  lastErrorCode        String?          @db.VarChar(64)
+  lastErrorMessage     String?          @db.VarChar(500)
+  nextRefreshAt        DateTime?        @db.Timestamptz(6)
+  isActive             Boolean          @default(true)
+  createdAt            DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime         @updatedAt @db.Timestamptz(6)
+
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quotaSnapshots  QuotaSnapshot[]
+  creditSnapshots CreditSnapshot[]
+  usageRecords    UsageRecord[]
+  refreshJobs     RefreshJob[]
+  auditEvents     AuditEvent[]
+
+  @@unique([userId, provider, displayName])
+  @@index([userId, status])
+  @@index([nextRefreshAt])
+  @@index([isActive, nextRefreshAt])
+}
+
+model QuotaSnapshot {
+  id                String          @id @default(uuid()) @db.Uuid
+  providerAccountId String          @db.Uuid
+  windowType        QuotaWindowType
+  unit              QuotaUnit
+  limitValue        Decimal?        @db.Decimal(30, 10)
+  usedValue         Decimal?        @db.Decimal(30, 10)
+  remainingValue    Decimal?        @db.Decimal(30, 10)
+  remainingPercent  Decimal?        @db.Decimal(10, 4)
+  resetsAt          DateTime?       @db.Timestamptz(6)
+  modelScope        String?         @db.VarChar(160)
+  source            DataSource
+  observedAt        DateTime        @db.Timestamptz(6)
+  createdAt         DateTime        @default(now()) @db.Timestamptz(6)
+
+  providerAccount ProviderAccount @relation(fields: [providerAccountId], references: [id], onDelete: Cascade)
+
+  @@index([providerAccountId, observedAt])
+  @@index([providerAccountId, windowType, modelScope, observedAt])
+  @@index([observedAt])
+}
+
+model CreditSnapshot {
+  id                String     @id @default(uuid()) @db.Uuid
+  providerAccountId String     @db.Uuid
+  amount            Decimal    @db.Decimal(30, 10)
+  currency          String     @db.VarChar(3)
+  creditType        CreditType
+  source            DataSource
+  observedAt        DateTime   @db.Timestamptz(6)
+  createdAt         DateTime   @default(now()) @db.Timestamptz(6)
+
+  providerAccount ProviderAccount @relation(fields: [providerAccountId], references: [id], onDelete: Cascade)
+
+  @@index([providerAccountId, observedAt])
+  @@index([observedAt])
+}
+
+model UsageRecord {
+  id                String    @id @default(uuid()) @db.Uuid
+  providerAccountId String    @db.Uuid
+  occurredAt        DateTime  @db.Timestamptz(6)
+  modelId           String?   @db.VarChar(160)
+  inputTokens       Int?
+  outputTokens      Int?
+  cachedTokens      Int?
+  reasoningTokens   Int?
+  cost              Decimal?  @db.Decimal(30, 10)
+  currency          String?   @db.VarChar(3)
+  source            DataSource
+  externalId        String?   @db.VarChar(200)
+  createdAt         DateTime  @default(now()) @db.Timestamptz(6)
+
+  providerAccount ProviderAccount @relation(fields: [providerAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([providerAccountId, externalId])
+  @@index([providerAccountId, occurredAt])
+  @@index([occurredAt])
+}
+
+model RefreshJob {
+  id                String         @id @default(uuid()) @db.Uuid
+  providerAccountId String         @db.Uuid
+  status            RefreshStatus  @default(PENDING)
+  trigger           RefreshTrigger @default(SCHEDULED)
+  scheduledAt       DateTime       @default(now()) @db.Timestamptz(6)
+  startedAt         DateTime?      @db.Timestamptz(6)
+  finishedAt        DateTime?      @db.Timestamptz(6)
+  attemptCount      Int            @default(0)
+  nextRetryAt       DateTime?      @db.Timestamptz(6)
+  errorCode         String?        @db.VarChar(64)
+  createdAt         DateTime       @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime       @updatedAt @db.Timestamptz(6)
+
+  providerAccount ProviderAccount @relation(fields: [providerAccountId], references: [id], onDelete: Cascade)
+
+  @@index([status, scheduledAt])
+  @@index([providerAccountId, status])
+  @@index([finishedAt])
+}
+
+model AuditEvent {
+  id                String         @id @default(uuid()) @db.Uuid
+  userId            String         @db.Uuid
+  eventType         AuditEventType
+  providerAccountId String?        @db.Uuid
+  metadata          Json           @default("{}")
+  createdAt         DateTime       @default(now()) @db.Timestamptz(6)
+
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  providerAccount ProviderAccount? @relation(fields: [providerAccountId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([providerAccountId, createdAt])
+  @@index([createdAt])
+}

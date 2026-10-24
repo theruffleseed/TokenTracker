@@ -1,0 +1,29 @@
+{
+  "credits": {
+    "monthlyCreditsGranted": 80,
+    "monthlyCredits": 62.5,
+    "purchasedCredits": 12.5,
+    "freeCredits": 0,
+    "windowLimits": {
+      "fiveHour": {
+        "used": 4.25,
+        "cap": 16,
+        "resetAt": 1792870800000
+      },
+      "weekly": {
+        "used": 18,
+        "cap": 40,
+        "resetAt": 1793302800000
+      }
+    }
+  },
+  "subscriptions": {
+    "planId": "individual-pro-v2",
+    "status": "active",
+    "currentPeriodEnd": "2026-11-24T00:00:00.000Z"
+  },
+  "whoami": {
+    "email": "dev@example.com",
+    "username": "dev"
+  }
+}
