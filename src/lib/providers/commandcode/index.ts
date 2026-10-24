@@ -54,21 +54,28 @@ export function parseCommandCodeBilling(input: {
   const root = unwrap(input.credits);
   const quota: QuotaSnapshotInput[] = [];
   const credits: CreditSnapshotInput[] = [];
+  const sub = firstSubscription(input.subscription);
+  const rawPlan =
+    stringAt(sub, ["planName", "plan.name", "planId", "plan.id", "tier"]) ??
+    stringAt(root, ["planName", "plan", "planId"]);
 
-  const monthlyGrant = numberAt(root, [
-    "monthlyCreditsGranted",
-    "monthlyGrant",
-    "monthlyCreditsLimit",
-    "planCredits",
-    "includedCredits",
-    "monthlyLimit",
-  ]);
   const monthlyRemaining = numberAt(root, [
     "monthlyCredits",
     "monthlyCreditsRemaining",
     "remainingMonthlyCredits",
     "includedCreditsRemaining",
   ]);
+  // Some responses omit the grant but report remaining monthly credits. In that
+  // case the public plan table is the only honest source for a percentage.
+  const monthlyGrant =
+    numberAt(root, [
+      "monthlyCreditsGranted",
+      "monthlyGrant",
+      "monthlyCreditsLimit",
+      "planCredits",
+      "includedCredits",
+      "monthlyLimit",
+    ]) ?? (monthlyRemaining !== null ? monthlyGrantForPlan(rawPlan) : null);
 
   if (monthlyGrant !== null || monthlyRemaining !== null) {
     const derived = deriveQuota({
@@ -169,10 +176,7 @@ export function parseCommandCodeBilling(input: {
     });
   }
 
-  const sub = firstSubscription(input.subscription);
   const who = unwrap(input.whoami);
-  const rawPlan = stringAt(sub, ["planName", "plan.name", "planId", "plan.id", "tier"]) ??
-    stringAt(root, ["planName", "plan", "planId"]);
 
   const accountLabel =
     stringAt(who, ["email", "user.email", "username", "user.username", "name", "user.name"]) ??
@@ -216,6 +220,33 @@ function firstSubscription(value: unknown): unknown {
     return unwrapped.subscriptions[0] ?? null;
   }
   return unwrapped;
+}
+
+/**
+ * Public monthly credit values from Command Code's pricing page. Used only
+ * when the billing payload reports remaining monthly credits but omits the
+ * grant; an unrecognized plan stays unset rather than guessing.
+ */
+const PLAN_MONTHLY_GRANT_USD: Array<{ plan: RegExp; amount: number }> = [
+  { plan: /\bteam\s*pro\b/, amount: 40 },
+  { plan: /\bmax\s*20x\b/, amount: 300 },
+  { plan: /\bmax\s*10x\b/, amount: 150 },
+  { plan: /\bgoat\b/, amount: 70 },
+  { plan: /\bpro\b/, amount: 80 },
+  { plan: /\bgo\b/, amount: 10 },
+];
+
+export function monthlyGrantForPlan(plan: string | null): number | null {
+  if (!plan) return null;
+  const normalized = plan
+    .toLowerCase()
+    .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  for (const entry of PLAN_MONTHLY_GRANT_USD) {
+    if (entry.plan.test(normalized)) return entry.amount;
+  }
+  return null;
 }
 
 function prettyPlanName(raw: string | null): string | null {

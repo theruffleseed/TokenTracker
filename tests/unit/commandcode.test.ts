@@ -95,7 +95,41 @@ describe("Command Code adapter", () => {
     expect(parsed.quota.find((row) => row.window === "monthly")?.remaining).toBe(50);
   });
 
-  it("does not assume a monthly grant from a plan id", () => {
+  it("derives the monthly grant from the recognized plan when omitted", () => {
+    const parsed = parseCommandCodeBilling({
+      credits: {
+        credits: { monthlyCredits: 60.6443625957 },
+      },
+      subscription: {
+        planId: "individual-goat",
+        currentPeriodEnd: "2026-11-24T00:00:00.000Z",
+      },
+      now: NOW,
+    });
+
+    const monthly = parsed.quota.find((row) => row.window === "monthly");
+    expect(monthly).toMatchObject({
+      limit: 70,
+      remaining: 60.6443625957,
+      resetsAt: "2026-11-24T00:00:00.000Z",
+    });
+    expect(monthly?.used).toBeCloseTo(9.355637, 5);
+    expect(monthly?.remainingPercent).toBeCloseTo(86.6348, 3);
+    expect(parsed.planName).toBe("Goat");
+  });
+
+  it("leaves an unrecognized plan's monthly percentage unset", () => {
+    const parsed = parseCommandCodeBilling({
+      credits: { credits: { monthlyCredits: 50 } },
+      subscription: { planId: "individual-mystery" },
+      now: NOW,
+    });
+
+    const monthly = parsed.quota.find((row) => row.window === "monthly");
+    expect(monthly).toMatchObject({ limit: null, remaining: 50, remainingPercent: null });
+  });
+
+  it("does not invent a monthly window from a plan id alone", () => {
     const parsed = parseCommandCodeBilling({
       credits: { purchasedCredits: 5 },
       subscription: { planId: "individual-go-v1" },

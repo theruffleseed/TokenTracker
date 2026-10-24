@@ -257,12 +257,17 @@ Normalization:
 | `windowLimits.weekly.{used,cap,resetAt}` | Weekly window, USD |
 | `purchasedCredits` | Credit snapshot, type `WALLET`, USD |
 | `freeCredits` | Credit snapshot, type `REWARD`, USD |
-| `subscriptions.planId` / `planName` | Display plan name |
+| `subscriptions.planId` / `planName` | Display plan name; monthly grant fallback |
 | `subscriptions.currentPeriodEnd` | Monthly reset timestamp |
 | `whoami.email` / `username` | Account label |
 
-- If a value is absent, it stays `null`. The adapter does **not** infer a
-  monthly grant from a plan ID.
+- The live response reports `monthlyCredits` (remaining) without
+  `monthlyCreditsGranted`. When the grant is absent, the adapter maps the
+  recognized public plan to its monthly credit value: Go $10, Goat $70, Pro $80,
+  Max 10x $150, Max 20x $300, Team Pro $40. An unrecognized plan keeps the limit
+  and percentage `null` rather than guessing; the remaining dollar amount is
+  still shown.
+- If a value is absent and no recognized plan applies, it stays `null`.
 - `resetAt` is accepted as epoch milliseconds and converted to UTC ISO.
 - Optional subscription/whoami failures are recorded as diagnostics and do not
   fail the quota refresh.
