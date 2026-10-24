@@ -7,6 +7,7 @@
 | Provider API keys | Secret | AES-256-GCM ciphertext, IV, auth tag, key version |
 | Passwords | Secret | scrypt hash only |
 | Session tokens | Secret | SHA-256 digest only; raw token in HttpOnly cookie |
+| Gateway tokens | Secret | SHA-256 digest and a short hint only |
 | Quota/credit/usage data | Private | PostgreSQL, scoped by `userId` |
 | Audit metadata | Internal | Redacted JSON; no credentials or payloads |
 | Exports | Private | Generated per request; authenticated; `no-store` |
@@ -34,6 +35,21 @@
 - Sign-out deletes the session row. Password change can revoke every other
   session.
 - Deleting a user cascades sessions.
+
+## Usage gateway tokens
+
+- Separate 256-bit `ttg_…` bearer token, independent of sessions and provider
+  keys; revocable without signing out.
+- Only a SHA-256 digest and a masked hint are stored. Plaintext is returned once
+  at creation.
+- The gateway resolves the token to its owner, then requires an owned, active,
+  live connection with a stored provider key. It forwards to a fixed upstream
+  host per provider; client-supplied URLs, auth headers, cookies, and host
+  headers are never forwarded.
+- Bodies are capped at 10 MB. Inference requests are never retried, and
+  upstream errors are passed through without exposing provider keys.
+- Gateway token issue/revoke are same-origin session mutations and are audited
+  without token material.
 
 ## CSRF and request integrity
 

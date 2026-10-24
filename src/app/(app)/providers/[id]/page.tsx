@@ -8,13 +8,16 @@ import {
   formatDateTime,
   formatMetric,
   formatMoney,
+  formatNumber,
   formatPercent,
   remainingBand,
 } from "@/lib/quota";
 import { Icon } from "@/components/icons";
 import { ProviderActions } from "@/components/ProviderActions";
 import { ManualForms } from "@/components/ManualForms";
+import { TokenHarborCsvImport } from "@/components/TokenHarborCsvImport";
 import { ConnectionSettings } from "@/components/ConnectionSettings";
+import { GatewayEndpoints } from "@/components/GatewayEndpoints";
 import { RelativeTime } from "@/components/RelativeTime";
 import {
   CREDIT_LABELS,
@@ -43,6 +46,9 @@ export default async function ProviderDetailPage({
   const band = remainingBand(account.lowest?.percent ?? null);
   const colors = BAND_COLORS[band];
   const primaryCredit = account.credits[0] ?? null;
+  const gatewayEligible =
+    account.authMode === "LIVE" &&
+    (account.provider === "TOKENHARBOR" || account.provider === "RIVER_AI");
 
   return (
     <>
@@ -228,6 +234,98 @@ export default async function ProviderDetailPage({
             )}
           </section>
 
+          {gatewayEligible ? (
+            <section className="card overflow-hidden">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-5 py-4">
+                <div>
+                  <h2 className="text-sm font-semibold text-slate-900">Gateway activity</h2>
+                  <p className="text-[11px] text-slate-500">
+                    Requests proxied through TokenTracker in the last 7 days.
+                  </p>
+                </div>
+                <SourceBadge source="estimated" />
+              </div>
+
+              {account.usageSummary.requests > 0 ? (
+                <>
+                  <dl className="grid grid-cols-2 gap-3 border-b border-slate-100 px-5 py-4 sm:grid-cols-4">
+                    <div>
+                      <dt className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                        Requests
+                      </dt>
+                      <dd className="mt-0.5 text-sm font-semibold tabular-nums text-slate-900">
+                        {formatNumber(account.usageSummary.requests, 0)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                        Input
+                      </dt>
+                      <dd className="mt-0.5 text-sm font-semibold tabular-nums text-slate-900">
+                        {formatNumber(account.usageSummary.inputTokens, 0)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                        Output
+                      </dt>
+                      <dd className="mt-0.5 text-sm font-semibold tabular-nums text-slate-900">
+                        {formatNumber(account.usageSummary.outputTokens, 0)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                        Estimated spend
+                      </dt>
+                      <dd className="mt-0.5 text-sm font-semibold tabular-nums text-slate-900">
+                        {account.usageSummary.cost === null
+                          ? "Unpriced"
+                          : formatMoney(account.usageSummary.cost, "USD")}
+                      </dd>
+                    </div>
+                  </dl>
+
+                  <div className="table-wrap rounded-none border-0">
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th>When</th>
+                          <th>Model</th>
+                          <th>Input</th>
+                          <th>Output</th>
+                          <th>Est. cost</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {account.usage.slice(0, 10).map((row) => (
+                          <tr key={row.id}>
+                            <td>{formatDateTime(row.occurredAt, user.timezone)}</td>
+                            <td className="max-w-[14rem] truncate font-mono text-[11px]">
+                              {row.modelId ?? "unknown"}
+                            </td>
+                            <td>{row.inputTokens === null ? "—" : formatNumber(row.inputTokens, 0)}</td>
+                            <td>{row.outputTokens === null ? "—" : formatNumber(row.outputTokens, 0)}</td>
+                            <td>
+                              {row.cost === null
+                                ? "Unpriced"
+                                : formatMoney(row.cost, row.currency ?? "USD")}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              ) : (
+                <p className="px-5 py-5 text-xs leading-relaxed text-slate-500">
+                  No proxied requests yet. Copy the gateway URL from the panel on the right into an
+                  OpenAI- or Anthropic-compatible client, then run a request. Usage appears here and
+                  balances are adjusted automatically.
+                </p>
+              )}
+            </section>
+          ) : null}
+
           <section>
             <div className="mb-3 flex items-center justify-between gap-2">
               <div>
@@ -237,6 +335,11 @@ export default async function ProviderDetailPage({
                 </p>
               </div>
             </div>
+            {account.provider === "TOKENHARBOR" ? (
+              <div className="mb-4">
+                <TokenHarborCsvImport accountId={account.id} />
+              </div>
+            ) : null}
             <ManualForms accountId={account.id} />
           </section>
 
@@ -397,6 +500,15 @@ export default async function ProviderDetailPage({
               ))}
             </ul>
           </section>
+
+          {gatewayEligible ? (
+            <GatewayEndpoints
+              accountId={account.id}
+              provider={account.provider as "TOKENHARBOR" | "RIVER_AI"}
+              tokenConfigured={!!user.gatewayTokenHint}
+              planName={account.planName}
+            />
+          ) : null}
 
           <ConnectionSettings
             accountId={account.id}

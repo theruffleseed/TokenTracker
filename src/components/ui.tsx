@@ -53,9 +53,11 @@ export function FreshnessPill({ account }: { account: AccountView }) {
 export function ProgressBar({
   usedPercent,
   className = "",
+  label = "Quota used",
 }: {
   usedPercent: number | null;
   className?: string;
+  label?: string;
 }) {
   const band = usageBand(usedPercent);
   return (
@@ -67,7 +69,7 @@ export function ProgressBar({
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={usedPercent === null ? undefined : Math.round(usedPercent)}
-        aria-label="Quota used"
+        aria-label={label}
       />
     </div>
   );

@@ -95,21 +95,27 @@ enum AuditEventType {
   SETTINGS_UPDATED
   DATA_EXPORTED
   RETENTION_PURGED
+  GATEWAY_TOKEN_CREATED
+  GATEWAY_TOKEN_REVOKED
 }
 
 model User {
-  id                 String    @id @default(uuid()) @db.Uuid
-  email              String    @unique
-  passwordHash       String
-  displayName        String?
-  timezone           String    @default("UTC")
-  refreshIntervalMin Int       @default(30)
-  quotaRetentionDays Int       @default(90)
-  usageRetentionDays Int       @default(180)
-  auditRetentionDays Int       @default(365)
-  sessionVersion     Int       @default(0)
-  createdAt          DateTime  @default(now()) @db.Timestamptz(6)
-  updatedAt          DateTime  @updatedAt @db.Timestamptz(6)
+  id                   String    @id @default(uuid()) @db.Uuid
+  email                String    @unique
+  passwordHash         String
+  displayName          String?
+  timezone             String    @default("UTC")
+  refreshIntervalMin   Int       @default(30)
+  quotaRetentionDays   Int       @default(90)
+  usageRetentionDays   Int       @default(180)
+  auditRetentionDays   Int       @default(365)
+  sessionVersion       Int       @default(0)
+  /** Only a SHA-256 digest of the usage-gateway bearer token is stored. */
+  gatewayTokenHash     String?   @unique
+  gatewayTokenHint     String?   @db.VarChar(32)
+  gatewayTokenCreatedAt DateTime? @db.Timestamptz(6)
+  createdAt            DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime  @updatedAt @db.Timestamptz(6)
 
   accounts   ProviderAccount[]
   sessions   Session[]

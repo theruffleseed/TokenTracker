@@ -11,12 +11,25 @@ snapshots wherever a vendor has no supported quota API.
 
 ## What it does
 
-- Shows every connected provider on one overview, sorted by lowest remaining
-  quota.
+- Keeps the dashboard to the essentials: provider name plus either three
+  quota-used bars (5-hour, weekly, monthly) or the credits left in dollars.
+  Countdowns, freshness labels, and full history live on the provider detail
+  page.
 - Displays 5-hour, weekly, monthly, and custom windows **only when the provider
-  supplies them**.
-- Counts down to each reset live, and shows the absolute reset time in the
-  user's timezone.
+  supplies them**. Providers with both quota and credits show both.
+- For probe-only providers, inline forms record data directly from the
+  dashboard: **Add weekly usage** captures TokenHarbor's separate paid-model and
+  free-model weekly windows, and **Add balance** records a wallet or allowance
+  amount. Cards keep one-tap **Update usage** / **Update balance** links, flag
+  data that is 7 days old, and prefill the current values. Full manual entry
+  stays on the provider detail page.
+- TokenHarbor's official billing CSV can be imported on the provider detail
+  page. It updates the wallet balance from the latest running balance; Office
+  Pass weekly usage is not in that export, so those percentages remain manual.
+- An optional **usage gateway** proxies OpenAI- and Anthropic-compatible traffic
+  for TokenHarbor and River. Requests routed through it are recorded as token
+  usage, priced from public list rates, and applied as **Estimated** balance and
+  weekly-window snapshots. Traffic sent directly to the vendor is not counted.
 - Progress bars encode **consumption**, not remaining allowance: the fill grows
   left to right from green through yellow/orange to red, and turns black at 100%
   used.
@@ -37,11 +50,18 @@ snapshots wherever a vendor has no supported quota API.
 Only OpenCode Go and Command Code expose per-window quota meters today, and both
 are community-observed routes rather than documented public APIs. They are
 disabled by default. TokenHarbor and River AI have **no** documented balance API,
-so they are validated live but tracked manually. Full evidence, endpoint shapes,
-and open verification gaps are in
+so they are validated live but tracked manually or through the usage gateway.
+Full evidence, endpoint shapes, and open verification gaps are in
 [`docs/provider-capability-matrix.md`](docs/provider-capability-matrix.md).
 
-TokenTracker never calls paid inference endpoints to measure quota.
+The gateway is not a vendor meter. It sees only requests whose base URL points
+at TokenTracker, prices them from published list rates, and labels the result
+**Estimated**. See [`docs/usage-gateway.md`](docs/usage-gateway.md).
+
+TokenTracker never calls paid inference endpoints to measure quota. Draft
+read-only API requests for TokenHarbor and River are in
+[`docs/vendor-api-requests.md`](docs/vendor-api-requests.md); they have not been
+sent.
 
 ## Stack
 
@@ -170,13 +190,16 @@ Details, threat model, and limits: [`docs/security.md`](docs/security.md).
 - Web Push notifications and background sync are not implemented.
 - Rate limiting is in-process; scale-out needs an edge/shared limiter.
 - Usage history ingestion exists in the schema and adapter contract, but none of
-  the four providers exposes a per-record history API today.
+  the four providers exposes a per-record history API today. The gateway fills
+  this gap only for traffic routed through it; direct vendor traffic is
+  invisible, and list-price estimates can differ from the invoice.
 - Capacitor requires pointing the wrapper at a deployed HTTPS instance; there is
   no offline-first bundled app.
 
 ## Documentation
 
 - [Provider capability matrix](docs/provider-capability-matrix.md)
+- [Usage gateway](docs/usage-gateway.md)
 - [Architecture](docs/architecture.md)
 - [Security](docs/security.md)
 - [Deployment](docs/deployment.md)

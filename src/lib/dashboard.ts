@@ -4,6 +4,7 @@ import type {
   QuotaSnapshot,
   RefreshJob,
   AuditEvent,
+  UsageRecord,
 } from "@prisma/client";
 import { prisma } from "./db";
 import { PROVIDER_CATALOG } from "./providers/catalog";
@@ -80,6 +81,27 @@ export interface AuditView {
   metadata: unknown;
 }
 
+export interface UsageView {
+  id: string;
+  occurredAt: string;
+  modelId: string | null;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  cachedTokens: number | null;
+  reasoningTokens: number | null;
+  cost: number | null;
+  currency: string | null;
+  source: "live" | "manual" | "cached" | "estimated";
+}
+
+export interface UsageSummary {
+  requests: number;
+  inputTokens: number;
+  outputTokens: number;
+  cachedTokens: number;
+  cost: number | null;
+}
+
 export interface AccountView {
   id: string;
   provider: ProviderKey;
@@ -116,6 +138,8 @@ export interface AccountDetail extends AccountView {
   creditHistory: CreditView[];
   jobs: JobView[];
   audit: AuditView[];
+  usage: UsageView[];
+  usageSummary: UsageSummary;
 }
 
 type AccountWithRelations = ProviderAccount & {
@@ -182,6 +206,21 @@ function mapAudit(row: AuditEvent): AuditView {
     eventType: row.eventType,
     createdAt: row.createdAt.toISOString(),
     metadata: row.metadata,
+  };
+}
+
+function mapUsage(row: UsageRecord): UsageView {
+  return {
+    id: row.id,
+    occurredAt: row.occurredAt.toISOString(),
+    modelId: row.modelId,
+    inputTokens: row.inputTokens,
+    outputTokens: row.outputTokens,
+    cachedTokens: row.cachedTokens,
+    reasoningTokens: row.reasoningTokens,
+    cost: toNumber(row.cost),
+    currency: row.currency,
+    source: SOURCE_FROM_DB[row.source],
   };
 }
 
@@ -314,6 +353,25 @@ export async function getAccountDetail(
 
   if (!account) return null;
 
+  const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const [usage, aggregate] = await Promise.all([
+    prisma.usageRecord.findMany({
+      where: { providerAccountId: account.id },
+      orderBy: { occurredAt: "desc" },
+      take: 20,
+    }),
+    prisma.usageRecord.aggregate({
+      where: { providerAccountId: account.id, occurredAt: { gte: since } },
+      _count: { _all: true },
+      _sum: {
+        inputTokens: true,
+        outputTokens: true,
+        cachedTokens: true,
+        cost: true,
+      },
+    }),
+  ]);
+
   const base = mapAccount(account);
   return {
     ...base,
@@ -321,6 +379,14 @@ export async function getAccountDetail(
     creditHistory: account.creditSnapshots.map(mapCredit),
     jobs: account.refreshJobs.map(mapJob),
     audit: account.auditEvents.map(mapAudit),
+    usage: usage.map(mapUsage),
+    usageSummary: {
+      requests: aggregate._count._all,
+      inputTokens: aggregate._sum.inputTokens ?? 0,
+      outputTokens: aggregate._sum.outputTokens ?? 0,
+      cachedTokens: aggregate._sum.cachedTokens ?? 0,
+      cost: toNumber(aggregate._sum.cost),
+    },
   };
 }
 

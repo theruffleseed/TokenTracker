@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { SettingsForm, PasswordForm } from "@/components/SettingsForms";
+import { GatewaySettings } from "@/components/GatewaySettings";
 import { Icon } from "@/components/icons";
 import { PageHeader } from "@/components/ui";
 
@@ -24,6 +25,8 @@ export default async function SettingsPage() {
       quotaRetentionDays: true,
       usageRetentionDays: true,
       auditRetentionDays: true,
+      gatewayTokenHint: true,
+      gatewayTokenCreatedAt: true,
       createdAt: true,
     },
   });
@@ -50,6 +53,11 @@ export default async function SettingsPage() {
         />
 
         <aside className="space-y-5">
+          <GatewaySettings
+            hint={settings.gatewayTokenHint}
+            createdAt={settings.gatewayTokenCreatedAt?.toISOString() ?? null}
+          />
+
           <section className="card p-5">
             <h2 className="text-sm font-semibold text-slate-900">Export</h2>
             <p className="mt-1 text-xs leading-relaxed text-slate-500">

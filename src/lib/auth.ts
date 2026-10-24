@@ -18,6 +18,8 @@ export interface SessionUser {
   quotaRetentionDays: number;
   usageRetentionDays: number;
   auditRetentionDays: number;
+  gatewayTokenHint: string | null;
+  gatewayTokenCreatedAt: Date | null;
   createdAt: Date;
 }
 
@@ -83,6 +85,8 @@ export async function getSessionUser(): Promise<SessionUser | null> {
           quotaRetentionDays: true,
           usageRetentionDays: true,
           auditRetentionDays: true,
+          gatewayTokenHint: true,
+          gatewayTokenCreatedAt: true,
           createdAt: true,
         },
       },

@@ -130,7 +130,7 @@ export function formatCountdown(target: string | Date | null, now: Date = new Da
   return `${seconds}s`;
 }
 
-export type FreshnessKind = "live" | "stale" | "never" | "manual" | "error";
+export type FreshnessKind = "live" | "stale" | "never" | "manual" | "estimated" | "error";
 
 export interface Freshness {
   kind: FreshnessKind;
@@ -164,7 +164,7 @@ export function computeFreshness(input: {
 
   if (input.latestSource === "estimated") {
     return {
-      kind: "stale",
+      kind: "estimated",
       label: input.latestObservationAt
         ? `Estimated · updated ${formatRelative(input.latestObservationAt, now)}`
         : "Estimated",

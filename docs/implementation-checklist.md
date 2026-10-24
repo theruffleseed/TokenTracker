@@ -53,12 +53,26 @@ Status legend: ✅ implemented and tested · 🟡 implemented with a known limit
 - ✅ Manual quota and credit snapshots with source labels.
 - ✅ Failures isolated per account; experimental adapters feature-gated.
 - ✅ Read-only requests only; no inference calls, scraping, or cookies.
+- ✅ Optional OpenAI/Anthropic-compatible usage gateway for TokenHarbor and
+      River, with streaming usage capture, public-list-price estimates, and
+      estimated balance/weekly snapshots.
 - 🟡 Usage-history method exists in the contract but no provider exposes a
-      per-record API today.
+      per-record API today. Gateway records cover proxied traffic only.
 
 ## M4 — Dashboard and UI
 
-- ✅ Mobile-first overview with lowest-quota highlight and sorting/filtering.
+- ✅ Minimal mobile-first dashboard: provider name plus three quota-used bars
+      (5-hour, weekly, monthly) or credits left, with both shown when available.
+- ✅ Inline "Add balance" entry for probe-only providers, with a manual-tracking
+      state until data is recorded.
+- ✅ Inline two-window weekly usage entry for TokenHarbor Office Pass
+      (paid-model and free-model bars).
+- ✅ Persistent one-tap update links on manual cards, prefilled with current
+      values, with a 7-day update-due flag.
+- ✅ TokenHarbor billing CSV import on the provider page: parses the official
+      ledger locally and saves the latest running balance as a manual wallet
+      snapshot. Office Pass usage is explicitly excluded.
+- ✅ Full detail (freshness, countdowns, labels, breakdowns) on provider pages.
 - ✅ Credit balances separated by type and currency.
 - ✅ Per-window remaining percentage, progress, countdown, absolute reset.
 - ✅ Last sync, freshness, stale/error states, manual labels.
@@ -71,10 +85,15 @@ Status legend: ✅ implemented and tested · 🟡 implemented with a known limit
       copy.
 - ✅ PWA installability and offline fallback.
 - ✅ No demo data in production paths.
+- ✅ Gateway token creation, rotation, revocation, per-account base URLs, and
+      recent proxied activity with estimated cost.
+- ✅ Gateway estimates re-derive from the latest real anchor, so manual
+      corrections are not double-charged.
 
 ## Remaining work before a broad public launch
 
 - ⬜ Validate the OpenCode Go and Command Code parsers against real accounts.
+- ⬜ Validate gateway usage capture against live TokenHarbor and River streams.
 - ⬜ Add a nonce-based Content-Security-Policy at the proxy/middleware.
 - ⬜ Add email verification and password reset.
 - ⬜ Add a per-device session inventory.

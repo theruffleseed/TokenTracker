@@ -134,7 +134,16 @@ limits, Universal Key)
 
 - Live: a single `GET /v1/models` request validates the key and confirms the
   connection. It does not meter inference and has no known billable cost.
-- Quota and balance: **manual only**. The UI labels entries `Manual`.
+- Quota and balance: **manual only**. The UI labels entries `Manual`. The
+  dashboard offers a two-field weekly capture for Office Pass connections:
+  `Paid models` and `Free models` are stored as separate weekly windows and
+  render as separate bars.
+- Billing CSV: Dashboard → Billing exports an append-only ledger with `Date`
+  (ISO UTC), `Type`, `Source pool`, `Amount USD`, `Running balance USD`,
+  `Status`, `Order ID`, and `PayPal capture ID`. The provider page parses this
+  file in the browser and saves the latest running balance as a `WALLET`
+  snapshot. The running balance is account-wide. **Office Pass weekly usage is
+  not in the export**, so the two percentage fields remain necessary.
 - Expected manual metrics:
   - Wallet balance (`WALLET`, USD)
   - Promotional/reward balance (`PROMOTIONAL` / `REWARD`, USD)
@@ -142,12 +151,24 @@ limits, Universal Key)
   - Free allowance remaining (percent, rolling 7-day window, `OTHER`/`WEEKLY`)
 - Do not combine the Pass allowance (usage value) with wallet balance. They are
   separate credit types and are rendered separately.
+- Usage gateway: `POST /v1/chat/completions`, `/v1/messages`, `/v1/responses`
+  and `GET /v1/models` can be proxied through TokenTracker itself. Usage is
+  priced from the public models page (USD per million tokens, including cache
+  read/write rates), stored as `ESTIMATED`, and deducted from an
+  `INCLUDED_ALLOWANCE` anchor when present. With a Pass tier set (Agent, Office,
+  Frontier), spend also updates the weekly paid-model window using the
+  published weekly allowance. Free-model allowance is not cost-based and is not
+  estimated. Only proxied traffic is observed.
+- A read-only API request draft (balance plus Pass windows) is recorded in
+  [`vendor-api-requests.md`](vendor-api-requests.md). It has not been sent.
 
 ### Limits and failure modes
 
 - 401 → invalid key. 429 is retryable; `Retry-After` is honored.
 - The adapter has no quota call to fail, so a manual connection never shows a
   fake live value.
+- Gateway costs are list-price estimates, not vendor invoices. Direct traffic
+  and free-model allowance consumption are not observed.
 
 ---
 
@@ -187,6 +208,11 @@ provider.
 - Quota/credit: **manual only**. Entries are labeled `Manual`.
 - Expected manual metrics: USD balance (`WALLET`) and any monthly included
   usage (`INCLUDED_ALLOWANCE`).
+- Usage gateway: OpenAI- and Anthropic-compatible inference can be proxied
+  through TokenTracker. Token usage is priced from the public pricing JSON and
+  deducted from the highest-priority USD balance anchor as an `ESTIMATED`
+  snapshot. Only proxied traffic is observed; `402` from direct traffic is not
+  a balance value.
 
 ---
 

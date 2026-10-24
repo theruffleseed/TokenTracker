@@ -15,7 +15,8 @@ export type IconName =
   | "trash"
   | "check"
   | "external"
-  | "database";
+  | "database"
+  | "copy";
 
 const paths: Record<IconName, React.ReactNode> = {
   dashboard: (
@@ -95,6 +96,12 @@ const paths: Record<IconName, React.ReactNode> = {
     <>
       <ellipse cx="12" cy="5" rx="8" ry="3" />
       <path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6" />
+    </>
+  ),
+  copy: (
+    <>
+      <rect x="9" y="9" width="12" height="12" rx="2" />
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
     </>
   ),
 };
