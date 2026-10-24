@@ -1,11 +1,12 @@
 import type { AccountView, CreditView, QuotaView } from "@/lib/dashboard";
 import {
-  BAND_COLORS,
   formatDateTime,
   formatMetric,
   formatMoney,
   formatPercent,
-  remainingBand,
+  USAGE_BAND_COLORS,
+  usageBand,
+  usagePercentFromQuota,
   windowLabel,
 } from "@/lib/quota";
 import { Countdown } from "@/components/Countdown";
@@ -50,23 +51,23 @@ export function FreshnessPill({ account }: { account: AccountView }) {
 }
 
 export function ProgressBar({
-  percent,
+  usedPercent,
   className = "",
 }: {
-  percent: number | null;
+  usedPercent: number | null;
   className?: string;
 }) {
-  const band = remainingBand(percent);
+  const band = usageBand(usedPercent);
   return (
-    <div className={`h-1.5 w-full overflow-hidden rounded-full bg-slate-100 ${className}`}>
+    <div className={`h-1.5 w-full overflow-hidden rounded-full bg-slate-200/70 ${className}`}>
       <div
-        className={`h-full rounded-full transition-[width] duration-500 ${BAND_COLORS[band].bar}`}
-        style={{ width: `${percent === null ? 0 : Math.min(100, Math.max(0, percent))}%` }}
+        className={`h-full rounded-full transition-[width,background-color] duration-500 ${USAGE_BAND_COLORS[band].bar}`}
+        style={{ width: `${usedPercent === null ? 0 : Math.min(100, Math.max(0, usedPercent))}%` }}
         role="progressbar"
         aria-valuemin={0}
         aria-valuemax={100}
-        aria-valuenow={percent ?? undefined}
-        aria-label="Quota remaining"
+        aria-valuenow={usedPercent === null ? undefined : Math.round(usedPercent)}
+        aria-label="Quota used"
       />
     </div>
   );
@@ -117,15 +118,15 @@ export function QuotaLine({
   quota: QuotaView;
   timezone: string;
 }) {
-  const band = remainingBand(quota.remainingPercent);
-  const colors = BAND_COLORS[band];
+  const usedPercent = usagePercentFromQuota(quota);
+  const usedColors = USAGE_BAND_COLORS[usageBand(usedPercent)];
   const resetLabel = quota.resetsAt
     ? formatDateTime(quota.resetsAt, timezone)
     : "Reset time unavailable";
 
   const remainingText =
     quota.unit === "percent"
-      ? formatPercent(quota.remainingPercent)
+      ? `${formatPercent(quota.remainingPercent)} remaining`
       : quota.remaining !== null
         ? `${formatMetric(quota.remaining, quota.unit)} left`
         : "Remaining unavailable";
@@ -148,12 +149,15 @@ export function QuotaLine({
             </span>
           ) : null}
         </div>
-        <span className={`shrink-0 text-sm font-semibold tabular-nums ${colors.text}`}>
-          {formatPercent(quota.remainingPercent)}
+        <span
+          className={`shrink-0 text-sm font-semibold tabular-nums ${usedColors.text}`}
+          title={`${usedColors.label} · ${formatPercent(usedPercent)} of the window used`}
+        >
+          {usedPercent === null ? "Usage unavailable" : `${formatPercent(usedPercent)} used`}
         </span>
       </div>
 
-      <ProgressBar percent={quota.remainingPercent} />
+      <ProgressBar usedPercent={usedPercent} />
 
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 text-[11px] text-slate-500">
         <span>

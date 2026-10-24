@@ -6,6 +6,8 @@ import {
   formatRelative,
   lowestRemainingPercent,
   remainingBand,
+  usageBand,
+  usagePercentFromQuota,
 } from "@/lib/quota";
 
 const NOW = new Date("2026-10-24T12:00:00.000Z");
@@ -82,6 +84,32 @@ describe("quota presentation helpers", () => {
     });
     expect(manual.kind).toBe("manual");
     expect(manual.label).toContain("Manual");
+  });
+
+  it("derives a consumption percentage for the progress bar", () => {
+    expect(
+      usagePercentFromQuota({ remainingPercent: 84, used: null, limit: 100 }),
+    ).toBe(16);
+    expect(
+      usagePercentFromQuota({ remainingPercent: null, used: 15, limit: 20 }),
+    ).toBe(75);
+    expect(
+      usagePercentFromQuota({ remainingPercent: null, used: null, limit: 20 }),
+    ).toBeNull();
+    expect(
+      usagePercentFromQuota({ remainingPercent: null, used: 0, limit: 0 }),
+    ).toBeNull();
+  });
+
+  it("uses progressive consumption bands with black at the limit", () => {
+    expect(usageBand(0)).toBe("safe");
+    expect(usageBand(49.9)).toBe("safe");
+    expect(usageBand(50)).toBe("watch");
+    expect(usageBand(65)).toBe("elevated");
+    expect(usageBand(80)).toBe("critical");
+    expect(usageBand(99.4)).toBe("critical");
+    expect(usageBand(100)).toBe("full");
+    expect(usageBand(null)).toBe("unknown");
   });
 
   it("selects the lowest supported window and ignores null percents", () => {

@@ -17,6 +17,9 @@ snapshots wherever a vendor has no supported quota API.
   supplies them**.
 - Counts down to each reset live, and shows the absolute reset time in the
   user's timezone.
+- Progress bars encode **consumption**, not remaining allowance: the fill grows
+  left to right from green through yellow/orange to red, and turns black at 100%
+  used.
 - Keeps wallet balance, promotional credit, included allowance, tokens,
   requests, and percentages as **separate units**. Nothing is silently
   converted or combined.

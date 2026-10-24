@@ -199,6 +199,54 @@ export function computeFreshness(input: {
   };
 }
 
+export type UsageBand = "safe" | "watch" | "elevated" | "critical" | "full" | "unknown";
+
+/**
+ * Consumption percentage for the progress bar. Remaining is the canonical
+ * stored value; usage is derived from it (or from used/limit) rather than
+ * guessed. Returns null when no percentage can be established.
+ */
+export function usagePercentFromQuota(input: {
+  remainingPercent: number | null;
+  used: number | null;
+  limit: number | null;
+}): number | null {
+  if (input.remainingPercent !== null && Number.isFinite(input.remainingPercent)) {
+    return Math.min(100, Math.max(0, 100 - input.remainingPercent));
+  }
+  if (
+    input.used !== null &&
+    input.limit !== null &&
+    input.limit > 0 &&
+    Number.isFinite(input.used) &&
+    Number.isFinite(input.limit)
+  ) {
+    return Math.min(100, Math.max(0, (input.used / input.limit) * 100));
+  }
+  return null;
+}
+
+export function usageBand(percent: number | null): UsageBand {
+  if (percent === null || !Number.isFinite(percent)) return "unknown";
+  if (percent >= 99.5) return "full";
+  if (percent >= 80) return "critical";
+  if (percent >= 65) return "elevated";
+  if (percent >= 50) return "watch";
+  return "safe";
+}
+
+export const USAGE_BAND_COLORS: Record<
+  UsageBand,
+  { bar: string; text: string; label: string }
+> = {
+  safe: { bar: "bg-emerald-500", text: "text-emerald-700", label: "Comfortable" },
+  watch: { bar: "bg-amber-400", text: "text-amber-700", label: "Half used" },
+  elevated: { bar: "bg-orange-500", text: "text-orange-700", label: "High usage" },
+  critical: { bar: "bg-rose-500", text: "text-rose-700", label: "Near limit" },
+  full: { bar: "bg-slate-950", text: "text-slate-950", label: "Limit reached" },
+  unknown: { bar: "bg-slate-300", text: "text-slate-500", label: "Usage unavailable" },
+};
+
 export type RemainingBand = "critical" | "low" | "medium" | "healthy" | "unknown";
 
 export function remainingBand(percent: number | null): RemainingBand {
