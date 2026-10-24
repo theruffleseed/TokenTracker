@@ -50,6 +50,7 @@ export function parseCommandCodeBilling(input: {
 }): CommandCodeParsed {
   const diagnostics: string[] = [];
   const nowIso = input.now.toISOString();
+  const envelope = unwrapEnvelope(input.credits);
   const root = unwrap(input.credits);
   const quota: QuotaSnapshotInput[] = [];
   const credits: CreditSnapshotInput[] = [];
@@ -106,7 +107,10 @@ export function parseCommandCodeBilling(input: {
   ];
 
   for (const candidate of windows) {
-    const raw = firstRecord(root, candidate.paths);
+    // Live responses put windowLimits beside the credits object; older payloads
+    // nest it inside. Check both without flattening the envelope.
+    const raw =
+      firstRecord(root, candidate.paths) ?? firstRecord(envelope, candidate.paths);
     if (!raw) {
       diagnostics.push(`No ${candidate.window} window in billing payload`);
       continue;
@@ -188,6 +192,12 @@ function unwrap(value: unknown): unknown {
   if (!isRecord(value)) return value;
   if (isRecord(value.data)) return value.data;
   if (isRecord(value.credits)) return value.credits;
+  return value;
+}
+
+function unwrapEnvelope(value: unknown): unknown {
+  if (!isRecord(value)) return value;
+  if (isRecord(value.data)) return value.data;
   return value;
 }
 

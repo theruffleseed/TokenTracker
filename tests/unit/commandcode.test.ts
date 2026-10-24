@@ -67,6 +67,34 @@ describe("Command Code adapter", () => {
     expect(parsed.quota.find((row) => row.window === "monthly")?.remainingPercent).toBe(40);
   });
 
+  it("reads rolling windows from the live envelope beside the credits object", () => {
+    const parsed = parseCommandCodeBilling({
+      credits: {
+        credits: { monthlyCredits: 50, purchasedCredits: 5 },
+        windowLimits: {
+          fiveHour: { used: 4, cap: 16, resetAt: 1792870800000 },
+          weekly: { used: 10, cap: 40, resetAt: 1793302800000 },
+        },
+      },
+      now: NOW,
+    });
+
+    expect(parsed.quota.find((row) => row.window === "rolling_5h")).toMatchObject({
+      limit: 16,
+      used: 4,
+      remaining: 12,
+      remainingPercent: 75,
+      resetsAt: "2026-10-24T19:40:00.000Z",
+    });
+    expect(parsed.quota.find((row) => row.window === "weekly")).toMatchObject({
+      limit: 40,
+      used: 10,
+      remaining: 30,
+      remainingPercent: 75,
+    });
+    expect(parsed.quota.find((row) => row.window === "monthly")?.remaining).toBe(50);
+  });
+
   it("does not assume a monthly grant from a plan id", () => {
     const parsed = parseCommandCodeBilling({
       credits: { purchasedCredits: 5 },
