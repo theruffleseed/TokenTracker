@@ -269,7 +269,7 @@ async function handle(
         try {
           collector.push(decoder.decode());
           const usage = collector.finish();
-          if (usage) enqueueGatewayUsage(account, usage);
+          if (usage) enqueueGatewayUsage(account, usage, { pricingKey: credential });
         } catch {
           // Usage capture is best-effort.
         }
@@ -286,7 +286,7 @@ async function handle(
   if (isMeteredEndpoint(endpoint)) {
     try {
       const usage = usageFromJson(JSON.parse(text), endpoint, model);
-      if (usage) enqueueGatewayUsage(account, usage);
+      if (usage) enqueueGatewayUsage(account, usage, { pricingKey: credential });
     } catch {
       // Non-JSON success bodies (for example proxied files) are left untouched.
     }

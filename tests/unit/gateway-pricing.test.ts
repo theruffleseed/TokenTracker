@@ -4,6 +4,7 @@ import {
   findPrice,
   modelKeys,
   parseRiverPricing,
+  parseTokenHarborModelsPricing,
   parseTokenHarborPricing,
 } from "@/lib/gateway/pricing";
 
@@ -59,6 +60,74 @@ describe("parseTokenHarborPricing", () => {
   it("returns an empty table when the page shape changes", () => {
     expect(parseTokenHarborPricing("<html>nothing here</html>").size).toBe(0);
     expect(parseTokenHarborPricing('<script>self.__next_f.push([1,"{\\"rows\\":oops}"])</script>').size).toBe(0);
+  });
+});
+
+describe("parseTokenHarborModelsPricing", () => {
+  const payload = {
+    object: "list",
+    data: [
+      {
+        id: "claude-opus-5.5",
+        pricing: {
+          input_usd_per_1m: 4,
+          output_usd_per_1m: 20,
+          cache_read_usd_per_1m: 0.2,
+          cache_write_usd_per_1m: 5,
+        },
+      },
+      {
+        id: "mistral-large-2512",
+        pricing: {
+          input_usd_per_1m: 0.5,
+          output_usd_per_1m: 1.5,
+          cache_read_usd_per_1m: null,
+          cache_write_usd_per_1m: null,
+        },
+      },
+      {
+        id: "mimo-v2.5",
+        pricing: { input_usd_per_1m: 0.14, output_usd_per_1m: 0.28 },
+      },
+      {
+        id: "mimo-v2.5:free",
+        pricing: { input_usd_per_1m: 0, output_usd_per_1m: 0 },
+      },
+      { id: "no-pricing" },
+    ],
+  };
+
+  it("reads the complete authenticated rate card", () => {
+    const table = parseTokenHarborModelsPricing(payload);
+    expect(findPrice(table, "claude-opus-5.5")).toEqual({
+      input: 4,
+      cachedInput: 0.2,
+      cacheWrite: 5,
+      output: 20,
+      free: false,
+    });
+    expect(findPrice(table, "no-pricing")).toBeNull();
+  });
+
+  it("falls back to the input rate when cache rates are unpublished", () => {
+    const table = parseTokenHarborModelsPricing(payload);
+    expect(findPrice(table, "mistral-large-2512")).toMatchObject({
+      input: 0.5,
+      cachedInput: 0.5,
+      cacheWrite: 0.5,
+      output: 1.5,
+    });
+  });
+
+  it("keeps free variants distinct from their paid model", () => {
+    const table = parseTokenHarborModelsPricing(payload);
+    expect(findPrice(table, "mimo-v2.5:free")).toMatchObject({ free: true, input: 0 });
+    expect(findPrice(table, "mimo-v2.5")).toMatchObject({ free: false, input: 0.14 });
+  });
+
+  it("returns an empty table for an unexpected payload", () => {
+    expect(parseTokenHarborModelsPricing(null).size).toBe(0);
+    expect(parseTokenHarborModelsPricing({ data: "nope" }).size).toBe(0);
   });
 });
 

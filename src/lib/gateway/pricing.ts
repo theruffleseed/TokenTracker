@@ -25,10 +25,14 @@ const PRICE_TTL_MS = 6 * 60 * 60 * 1000;
 const FAILURE_TTL_MS = 5 * 60 * 1000;
 const FETCH_TIMEOUT_MS = 8_000;
 
-const cache = new Map<ProviderKey, { expiresAt: number; table: PriceTable | null }>();
+const cache = new Map<
+  ProviderKey,
+  { expiresAt: number; table: PriceTable | null; complete: boolean }
+>();
 const inflight = new Map<ProviderKey, Promise<PriceTable | null>>();
 
 function finitePrice(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
   const number = typeof value === "number" ? value : Number(value);
   return Number.isFinite(number) && number >= 0 ? number : null;
 }
@@ -159,6 +163,40 @@ export function parseTokenHarborPricing(html: string): PriceTable {
   return table;
 }
 
+/**
+ * TokenHarbor's authenticated models response includes the same rate card for
+ * every callable model. The public models page lags behind it, so prefer this
+ * source whenever a provider key is available.
+ */
+export function parseTokenHarborModelsPricing(payload: unknown): PriceTable {
+  const table: PriceTable = new Map();
+  if (typeof payload !== "object" || payload === null) return table;
+  const data = (payload as Record<string, unknown>).data;
+  if (!Array.isArray(data)) return table;
+
+  for (const row of data) {
+    if (typeof row !== "object" || row === null) continue;
+    const record = row as Record<string, unknown>;
+    const price = record.pricing;
+    if (typeof price !== "object" || price === null) continue;
+    const rates = price as Record<string, unknown>;
+    const input = finitePrice(rates.input_usd_per_1m);
+    const output = finitePrice(rates.output_usd_per_1m);
+    if (input === null || output === null) continue;
+
+    const free = input === 0 && output === 0;
+    addPrice(table, record.id, {
+      input: free ? 0 : input,
+      cachedInput: free ? 0 : finitePrice(rates.cache_read_usd_per_1m) ?? input,
+      cacheWrite: free ? 0 : finitePrice(rates.cache_write_usd_per_1m) ?? input,
+      output: free ? 0 : output,
+      free,
+    });
+  }
+
+  return table;
+}
+
 /** River's public pricing JSON lists per-million-token rates per model. */
 export function parseRiverPricing(payload: unknown): PriceTable {
   const table: PriceTable = new Map();
@@ -185,56 +223,85 @@ export function parseRiverPricing(payload: unknown): PriceTable {
   return table;
 }
 
-async function fetchTable(provider: ProviderKey): Promise<PriceTable> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-  try {
-    if (provider === "RIVER_AI") {
-      const response = await fetch("https://console.river.ai/api/public/pricing", {
-        headers: { Accept: "application/json", "User-Agent": "TokenTracker-Gateway/0.1" },
-        signal: controller.signal,
-        cache: "no-store",
-      });
-      if (!response.ok) throw new Error(`pricing HTTP ${response.status}`);
-      return parseRiverPricing(await response.json());
-    }
+interface FetchedPrices {
+  table: PriceTable;
+  /** False when an incomplete source (the public page) was used. */
+  complete: boolean;
+}
 
-    if (provider === "TOKENHARBOR") {
-      const response = await fetch("https://tokenharbor.ai/models", {
-        headers: { Accept: "text/html", "User-Agent": "TokenTracker-Gateway/0.1" },
-        signal: controller.signal,
-        cache: "no-store",
-      });
-      if (!response.ok) throw new Error(`pricing HTTP ${response.status}`);
-      return parseTokenHarborPricing(await response.text());
-    }
-
-    return new Map();
-  } finally {
-    clearTimeout(timeout);
+async function fetchTable(provider: ProviderKey, apiKey?: string): Promise<FetchedPrices> {
+  const signal = () => AbortSignal.timeout(FETCH_TIMEOUT_MS);
+  if (provider === "RIVER_AI") {
+    const response = await fetch("https://console.river.ai/api/public/pricing", {
+      headers: { Accept: "application/json", "User-Agent": "TokenTracker-Gateway/0.1" },
+      signal: signal(),
+      cache: "no-store",
+    });
+    if (!response.ok) throw new Error(`pricing HTTP ${response.status}`);
+    return { table: parseRiverPricing(await response.json()), complete: true };
   }
+
+  if (provider === "TOKENHARBOR") {
+    if (apiKey) {
+      try {
+        const response = await fetch("https://tokenharbor.ai/v1/models", {
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${apiKey}`,
+            "User-Agent": "TokenTracker-Gateway/0.1",
+          },
+          signal: signal(),
+          cache: "no-store",
+        });
+        if (response.ok) {
+          const table = parseTokenHarborModelsPricing(await response.json());
+          if (table.size > 0) return { table, complete: true };
+        }
+      } catch {
+        // Fall through to the public page.
+      }
+    }
+
+    const response = await fetch("https://tokenharbor.ai/models", {
+      headers: { Accept: "text/html", "User-Agent": "TokenTracker-Gateway/0.1" },
+      signal: signal(),
+      cache: "no-store",
+    });
+    if (!response.ok) throw new Error(`pricing HTTP ${response.status}`);
+    return { table: parseTokenHarborPricing(await response.text()), complete: false };
+  }
+
+  return { table: new Map(), complete: false };
 }
 
 /**
  * Cached public price table. Pricing failures never block inference; they only
- * leave the request's cost unset.
+ * leave the request's cost unset. A provider key upgrades TokenHarbor from the
+ * incomplete public page to its full authenticated catalog.
  */
 export async function getPricing(
   provider: ProviderKey,
-  options: { now?: () => number } = {},
+  options: { now?: () => number; apiKey?: string } = {},
 ): Promise<PriceTable | null> {
   const now = options.now?.() ?? Date.now();
   const cached = cache.get(provider);
-  if (cached && cached.expiresAt > now) return cached.table;
+  if (cached && cached.expiresAt > now) {
+    const upgradable =
+      provider === "TOKENHARBOR" &&
+      Boolean(options.apiKey) &&
+      !cached.complete &&
+      cached.table !== null;
+    if (!upgradable) return cached.table;
+  }
 
   const existing = inflight.get(provider);
   if (existing) return existing;
 
   const promise = (async () => {
     try {
-      const table = await fetchTable(provider);
+      const { table, complete } = await fetchTable(provider, options.apiKey);
       if (table.size === 0) throw new Error("pricing table was empty");
-      cache.set(provider, { expiresAt: now + PRICE_TTL_MS, table });
+      cache.set(provider, { expiresAt: now + PRICE_TTL_MS, table, complete });
       return table;
     } catch (error) {
       console.warn(
@@ -242,7 +309,7 @@ export async function getPricing(
           error instanceof Error ? error.message : "unknown error"
         }`,
       );
-      cache.set(provider, { expiresAt: now + FAILURE_TTL_MS, table: null });
+      cache.set(provider, { expiresAt: now + FAILURE_TTL_MS, table: null, complete: false });
       return null;
     } finally {
       inflight.delete(provider);

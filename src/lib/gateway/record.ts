@@ -33,7 +33,7 @@ export interface GatewayUsageRecord {
 export async function recordGatewayUsage(
   account: GatewayAccount,
   usage: CapturedUsage,
-  options: { now?: Date; price?: ModelPrice | null } = {},
+  options: { now?: Date; price?: ModelPrice | null; pricingKey?: string } = {},
 ): Promise<GatewayUsageRecord | null> {
   if (
     usage.inputTokens === null &&
@@ -48,7 +48,10 @@ export async function recordGatewayUsage(
   const price =
     "price" in options
       ? options.price ?? null
-      : findPrice(await getPricing(account.provider), usage.modelId);
+      : findPrice(
+          await getPricing(account.provider, { apiKey: options.pricingKey }),
+          usage.modelId,
+        );
   const cost = estimateCost(price, usage);
   const recordId = randomUUID();
 
@@ -283,10 +286,11 @@ let queue: Promise<void> = Promise.resolve();
 export function enqueueGatewayUsage(
   account: GatewayAccount,
   usage: CapturedUsage,
+  options: { pricingKey?: string } = {},
 ): void {
   queue = queue
     .then(async () => {
-      await recordGatewayUsage(account, usage);
+      await recordGatewayUsage(account, usage, options);
     })
     .catch((error) => {
       console.warn(

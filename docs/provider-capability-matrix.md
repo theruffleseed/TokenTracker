@@ -153,8 +153,9 @@ limits, Universal Key)
   separate credit types and are rendered separately.
 - Usage gateway: `POST /v1/chat/completions`, `/v1/messages`, `/v1/responses`
   and `GET /v1/models` can be proxied through TokenTracker itself. Usage is
-  priced from the public models page (USD per million tokens, including cache
-  read/write rates), stored as `ESTIMATED`, and deducted from an
+  priced from the authenticated models catalog (USD per million tokens,
+  including cache read/write rates), falling back to the public models page,
+  stored as `ESTIMATED`, and deducted from an
   `INCLUDED_ALLOWANCE` anchor when present. With a Pass tier set (Agent, Office,
   Frontier), spend also updates the weekly paid-model window using the
   published weekly allowance. Free-model allowance is not cost-based and is not

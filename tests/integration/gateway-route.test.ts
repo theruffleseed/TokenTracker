@@ -121,6 +121,63 @@ describe("gateway route", () => {
     expect(Number(usage?.cost)).toBeCloseTo(2, 8);
   });
 
+  it("prices TokenHarbor usage from the authenticated models catalog", async () => {
+    const user = await createTestUser();
+    const account = await createAccount({
+      userId: user.id,
+      provider: "TOKENHARBOR",
+      displayName: "Harbor",
+      authMode: "LIVE",
+      credential: "thk_provider_secret",
+    });
+    const issued = createGatewayToken();
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { gatewayTokenHash: issued.tokenHash, gatewayTokenHint: issued.hint },
+    });
+
+    fetchMock.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.startsWith("https://tokenharbor.ai/v1/models")) {
+        return jsonResponse({
+          object: "list",
+          data: [
+            {
+              id: "test-model",
+              pricing: {
+                input_usd_per_1m: 1,
+                output_usd_per_1m: 2,
+                cache_read_usd_per_1m: 0.5,
+                cache_write_usd_per_1m: 3,
+              },
+            },
+          ],
+        });
+      }
+      return chatResponse();
+    });
+
+    const response = await call(account.id, issued.token);
+    expect(response.status).toBe(200);
+
+    await flushGatewayUsage();
+    const usage = await prisma.usageRecord.findFirst({
+      where: { providerAccountId: account.id },
+    });
+    // $1.00 input + $1.00 output at the catalog rates.
+    expect(Number(usage?.cost)).toBeCloseTo(2, 8);
+
+    const modelsCall = fetchMock.mock.calls.find(([url]) =>
+      String(url).startsWith("https://tokenharbor.ai/v1/models"),
+    );
+    const headers = new Headers(modelsCall?.[1]?.headers);
+    expect(headers.get("authorization")).toBe("Bearer thk_provider_secret");
+    const pageCall = fetchMock.mock.calls.find(([url]) =>
+      String(url).startsWith("https://tokenharbor.ai/models"),
+    );
+    expect(pageCall).toBeUndefined();
+  });
+
   it("rejects a missing or invalid token before contacting the provider", async () => {
     const user = await createTestUser();
     const account = await createAccount({
