@@ -1,6 +1,13 @@
 import { z } from "zod";
 
-export const PROVIDERS = ["OPENCODE_GO", "TOKENHARBOR", "RIVER_AI", "COMMANDCODE"] as const;
+export const PROVIDERS = [
+  "OPENCODE_GO",
+  "TOKENHARBOR",
+  "RIVER_AI",
+  "COMMANDCODE",
+  "QODER",
+  "YETA",
+] as const;
 export type ProviderKey = (typeof PROVIDERS)[number];
 
 export const QUOTA_WINDOWS = [
@@ -64,7 +71,7 @@ export const providerCreateSchema = z
     refreshIntervalMin: z.coerce.number().int().min(5).max(1440).optional(),
   })
   .superRefine((value, ctx) => {
-    if (value.authMode === "LIVE" && !value.credential) {
+    if (value.authMode === "LIVE" && value.provider !== "QODER" && !value.credential) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["credential"],

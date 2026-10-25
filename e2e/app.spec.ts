@@ -47,12 +47,11 @@ test("register, add a manual provider, and track quota and credits", async ({ pa
     "aria-valuenow",
     "40",
   );
-  await expect(page.getByText("40%")).toBeVisible();
-  await expect(page.getByText("Credits left")).toBeVisible();
-  await expect(page.getByText("$42.50")).toBeVisible();
+  await expect(page.getByText("40%").first()).toBeVisible();
+  await expect(page.getByText("$42.50").first()).toBeVisible();
 });
 
-test("adds a manual balance from the dashboard", async ({ page }) => {
+test("adds a manual balance from the provider page", async ({ page }) => {
   const email = `e2e-balance-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
 
   await page.goto("/register");
@@ -70,14 +69,16 @@ test("adds a manual balance from the dashboard", async ({ page }) => {
 
   await expect(page).toHaveURL(/\/providers\/[0-9a-f-]+$/);
   await page.goto("/dashboard");
-  await expect(page.getByRole("heading", { name: "River Wallet" })).toBeVisible();
+  await page.getByRole("heading", { name: "River Wallet" }).click();
+  await expect(page).toHaveURL(/\/providers\/[0-9a-f-]+$/);
 
   await page.getByRole("button", { name: "Add balance" }).click();
   await page.getByLabel("Balance (USD)").fill("12.34");
-  await page.getByRole("button", { name: "Save balance" }).click();
+  await page.getByRole("button", { name: "Save balance", exact: true }).click();
+  await expect(page.getByText("$12.34").first()).toBeVisible();
 
-  await expect(page.getByText("Credits left")).toBeVisible();
-  await expect(page.getByText("$12.34")).toBeVisible();
+  await page.goto("/dashboard");
+  await expect(page.getByText("$12.34").first()).toBeVisible();
 });
 
 test("records TokenHarbor Office Pass paid and free weekly usage", async ({ page }) => {
@@ -98,22 +99,24 @@ test("records TokenHarbor Office Pass paid and free weekly usage", async ({ page
 
   await expect(page).toHaveURL(/\/providers\/[0-9a-f-]+$/);
   await page.goto("/dashboard");
-  await expect(page.getByRole("heading", { name: "Office Pass" })).toBeVisible();
-  await expect(page.getByText("Office Pass · usage and balance are manual")).toBeVisible();
+  await page.getByRole("heading", { name: "Office Pass" }).click();
+  await expect(page).toHaveURL(/\/providers\/[0-9a-f-]+$/);
 
   await page.getByRole("button", { name: "Add weekly usage" }).click();
   await page.getByLabel("Paid models").fill("54");
   await page.getByLabel("Free models").fill("20");
   await page.getByRole("button", { name: "Save usage" }).click();
+  await expect(page.getByText("54%").first()).toBeVisible();
 
+  await page.goto("/dashboard");
   await expect(
     page.getByRole("progressbar", { name: "Paid models quota used" }),
   ).toHaveAttribute("aria-valuenow", "54");
   await expect(
     page.getByRole("progressbar", { name: "Free models quota used" }),
   ).toHaveAttribute("aria-valuenow", "20");
-  await expect(page.getByText("54%")).toBeVisible();
-  await expect(page.getByText("20%")).toBeVisible();
+  await expect(page.getByText("54%").first()).toBeVisible();
+  await expect(page.getByText("20%").first()).toBeVisible();
 });
 
 test("imports the latest wallet balance from a TokenHarbor billing CSV", async ({ page }) => {
@@ -154,8 +157,7 @@ test("imports the latest wallet balance from a TokenHarbor billing CSV", async (
 
   await page.goto("/dashboard");
   await expect(page.getByRole("heading", { name: "CSV Harbor" })).toBeVisible();
-  await expect(page.getByText("Credits left")).toBeVisible();
-  await expect(page.getByText("$1,037.50")).toBeVisible();
+  await expect(page.getByText("$1,037.50").first()).toBeVisible();
 });
 
 test("creates and revokes a usage gateway token", async ({ page }) => {

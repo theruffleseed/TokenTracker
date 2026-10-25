@@ -16,6 +16,8 @@ enum Provider {
   TOKENHARBOR
   RIVER_AI
   COMMANDCODE
+  QODER
+  YETA
 }
 
 enum AuthMode {

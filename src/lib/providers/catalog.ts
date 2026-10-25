@@ -102,6 +102,50 @@ export const PROVIDER_CATALOG: Record<ProviderKey, ProviderCatalogEntry> = {
       experimental: true,
     },
   },
+  QODER: {
+    key: "QODER",
+    slug: "qoder",
+    name: "Qoder",
+    vendor: "Qoder",
+    blurb: "AI coding subscription with monthly plan credits and optional add-on packs, read via the Qoder CLI.",
+    authLabel: "Qoder CLI session",
+    docsUrl: "https://docs.qoder.com/cli/usage",
+    capabilityNotes: [
+      "Reads the official Qoder CLI /usage panel; no API key is stored.",
+      "Requires a one-time `qodercli login` on the TokenTracker host.",
+      "Free accounts report 0/0 plan credits; paid plans show monthly credits and add-on packs.",
+    ],
+    capabilities: {
+      quotaWindows: ["monthly"],
+      creditBalance: false,
+      usageHistory: false,
+      modelScopes: false,
+      connectionProbe: true,
+      experimental: true,
+    },
+  },
+  YETA: {
+    key: "YETA",
+    slug: "yeta",
+    name: "Yeta",
+    vendor: "Yeta",
+    blurb: "Prepaid USD credit balance on the Yeta OpenAI-compatible platform.",
+    authLabel: "Yeta API key (sk-…)",
+    docsUrl: "https://platform.yeta.ai",
+    capabilityNotes: [
+      "Reads the OpenAI-compatible billing endpoints exposed by the Yeta gateway.",
+      "Shows remaining prepaid USD balance (hard limit minus usage).",
+      "Uses the same API key as model requests; no inference calls are made.",
+    ],
+    capabilities: {
+      quotaWindows: [],
+      creditBalance: true,
+      usageHistory: false,
+      modelScopes: false,
+      connectionProbe: true,
+      experimental: true,
+    },
+  },
 };
 
 export const PROVIDER_LIST = Object.values(PROVIDER_CATALOG);

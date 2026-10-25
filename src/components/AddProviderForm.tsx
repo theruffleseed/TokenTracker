@@ -37,6 +37,7 @@ export function AddProviderForm({ experimentalEnabled }: { experimentalEnabled: 
 
   const liveBlocked = entry.capabilities.experimental && !experimentalEnabled;
   const supportsLive = entry.capabilities.connectionProbe;
+  const needsCredential = authMode === "LIVE" && provider !== "QODER";
 
   function chooseProvider(key: ProviderKey) {
     setProvider(key);
@@ -57,7 +58,7 @@ export function AddProviderForm({ experimentalEnabled }: { experimentalEnabled: 
     setError(null);
     setFieldErrors({});
 
-    if (authMode === "LIVE" && !credential.trim()) {
+    if (needsCredential && !credential.trim()) {
       setFieldErrors({ credential: "Enter the provider API key" });
       setPending(false);
       return;
@@ -71,7 +72,7 @@ export function AddProviderForm({ experimentalEnabled }: { experimentalEnabled: 
           provider,
           displayName,
           authMode,
-          credential: authMode === "LIVE" ? credential.trim() : undefined,
+          credential: needsCredential ? credential.trim() : undefined,
           planName: planName.trim() || undefined,
           accountLabel: accountLabel.trim() || undefined,
           refreshIntervalMin: Number(interval) || 30,
@@ -158,7 +159,9 @@ export function AddProviderForm({ experimentalEnabled }: { experimentalEnabled: 
               <span className="mt-1 block text-xs leading-relaxed text-slate-500">
                 {liveBlocked
                   ? "Disabled by server configuration. Experimental adapters are off."
-                  : "Store an encrypted, read-only API key and refresh on a schedule."}
+                  : provider === "QODER"
+                    ? "Use the Qoder CLI session on this machine; no key is stored."
+                    : "Store an encrypted, read-only API key and refresh on a schedule."}
               </span>
             </button>
 
@@ -182,10 +185,20 @@ export function AddProviderForm({ experimentalEnabled }: { experimentalEnabled: 
             </button>
           </div>
 
-          {authMode === "LIVE" && !entry.capabilities.quotaWindows.length ? (
+          {authMode === "LIVE" &&
+          !entry.capabilities.quotaWindows.length &&
+          !entry.capabilities.creditBalance ? (
             <p className="mt-3 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs leading-relaxed text-sky-800">
               {entry.name} has no documented quota or balance API. A live key only verifies the
               connection; continue with manual snapshots for the numbers.
+            </p>
+          ) : null}
+
+          {authMode === "LIVE" && provider === "QODER" ? (
+            <p className="mt-3 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs leading-relaxed text-sky-800">
+              Uses the Qoder CLI session already authorized on this machine. No key is stored. If
+              the session expires, run{" "}
+              <code className="font-mono">qodercli login</code> on the host.
             </p>
           ) : null}
         </section>
@@ -219,7 +232,15 @@ export function AddProviderForm({ experimentalEnabled }: { experimentalEnabled: 
                 id="planName"
                 className="input"
                 maxLength={80}
-                placeholder={entry.key === "TOKENHARBOR" ? "Office Pass" : "Go Plus"}
+                placeholder={
+                  entry.key === "TOKENHARBOR"
+                    ? "Office Pass"
+                    : entry.key === "QODER"
+                      ? "Pro"
+                      : entry.key === "YETA"
+                        ? "Prepaid"
+                        : "Go Plus"
+                }
                 value={planName}
                 onChange={(event) => setPlanName(event.target.value)}
               />
@@ -261,7 +282,7 @@ export function AddProviderForm({ experimentalEnabled }: { experimentalEnabled: 
             </div>
           </div>
 
-          {authMode === "LIVE" ? (
+          {authMode === "LIVE" && provider !== "QODER" ? (
             <div>
               <label htmlFor="credential" className="label mb-1.5">
                 {entry.authLabel}
@@ -274,7 +295,13 @@ export function AddProviderForm({ experimentalEnabled }: { experimentalEnabled: 
                 spellCheck={false}
                 value={credential}
                 onChange={(event) => setCredential(event.target.value)}
-                placeholder={entry.key === "OPENCODE_GO" ? "oc_sk_…" : "Paste the API key"}
+                placeholder={
+                  entry.key === "OPENCODE_GO"
+                    ? "oc_sk_…"
+                    : entry.key === "YETA"
+                      ? "sk-…"
+                      : "Paste the API key"
+                }
               />
               <p className="mt-1.5 text-[11px] leading-relaxed text-slate-400">
                 Encrypted with AES-256-GCM before storage and never returned by the API. The key

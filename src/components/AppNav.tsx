@@ -87,7 +87,10 @@ export function AppNav({
         </div>
       </aside>
 
-      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-slate-200 bg-canvas/90 px-4 py-3 backdrop-blur lg:hidden">
+      <header
+        className="sticky top-0 z-30 flex items-center justify-between border-b border-slate-200 bg-canvas/90 px-4 pb-3 backdrop-blur lg:hidden"
+        style={{ paddingTop: "max(env(safe-area-inset-top), 2.25rem)" }}
+      >
         <Brand />
         <button
           type="button"

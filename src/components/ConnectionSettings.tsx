@@ -2,10 +2,12 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import type { ProviderKey } from "@/lib/schemas";
 import { Icon } from "./icons";
 
 export function ConnectionSettings({
   accountId,
+  provider,
   displayName,
   planName,
   accountLabel,
@@ -14,6 +16,7 @@ export function ConnectionSettings({
   credentialHint,
 }: {
   accountId: string;
+  provider: ProviderKey;
   displayName: string;
   planName: string | null;
   accountLabel: string | null;
@@ -164,7 +167,7 @@ export function ConnectionSettings({
         </button>
       </form>
 
-      {authMode === "LIVE" ? (
+      {authMode === "LIVE" && provider !== "QODER" ? (
         <form onSubmit={saveCredential} className="mt-5 border-t border-slate-100 pt-4">
           <label htmlFor="s-credential" className="label mb-1.5">
             Replace API key
@@ -188,6 +191,13 @@ export function ConnectionSettings({
             {pending === "credential" ? "Replacing…" : "Replace credential"}
           </button>
         </form>
+      ) : null}
+
+      {authMode === "LIVE" && provider === "QODER" ? (
+        <div className="mt-5 border-t border-slate-100 pt-4 text-[11px] leading-relaxed text-slate-500">
+          Authenticated by the local Qoder CLI session; no key is stored. To change accounts, run{" "}
+          <code className="font-mono text-slate-700">qodercli login</code> on the host, then refresh.
+        </div>
       ) : null}
 
       {error ? <p role="alert" className="mt-3 text-xs text-rose-600">{error}</p> : null}

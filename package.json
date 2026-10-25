@@ -36,6 +36,7 @@
     "zod": "3.25.76"
   },
   "devDependencies": {
+    "@capacitor/android": "^7.4.3",
     "@capacitor/cli": "7.4.3",
     "@capacitor/core": "7.4.3",
     "@playwright/test": "1.55.0",

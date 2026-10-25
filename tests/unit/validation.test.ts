@@ -30,6 +30,33 @@ describe("runtime validation", () => {
     expect(result.success).toBe(true);
   });
 
+  it("accepts Qoder as a manual connection", () => {
+    const result = providerCreateSchema.safeParse({
+      provider: "QODER",
+      displayName: "Qoder",
+      authMode: "MANUAL",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts a live Qoder connection without a key (local CLI session)", () => {
+    const result = providerCreateSchema.safeParse({
+      provider: "QODER",
+      displayName: "Qoder",
+      authMode: "LIVE",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("requires a key for a live Yeta connection", () => {
+    const result = providerCreateSchema.safeParse({
+      provider: "YETA",
+      displayName: "Yeta",
+      authMode: "LIVE",
+    });
+    expect(result.success).toBe(false);
+  });
+
   it("rejects quota snapshots without enough data", () => {
     const result = manualQuotaSchema.safeParse({
       windowType: "monthly",

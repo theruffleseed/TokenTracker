@@ -1,7 +1,7 @@
 # Provider capability matrix
 
 **Research date:** 2026-10-24
-**Scope:** read-only quota, credit, reset, and usage capabilities for the four
+**Scope:** read-only quota, credit, reset, and usage capabilities for the six
 providers TokenTracker supports.
 
 This document is deliberately conservative. A provider is marked **verified
@@ -19,6 +19,8 @@ inference requests to measure quota.
 | **TokenHarbor** | Universal Key (`thk_live_…`) | No | Free 7-day allowance only (no API) | Pass allowance (no API) | Wallet balance (no API) | No | No | Key probe + manual |
 | **River AI** | API key (`rv_…`) | No | No | No | Console only (no API) | No | No | Key probe + manual |
 | **Command Code** | API key | Yes | Yes | Yes | Extra/purchased credits | No (aggregate only) | No | Experimental live meters |
+| **Qoder** | Local CLI login | No | No | Yes (CLI /usage panel) | Add-on packs (same panel) | No | No | CLI live usage (experimental) |
+| **Yeta** | API key (`sk-…`) | No | No | No | Prepaid USD balance (billing API) | No | No | Billing endpoints (experimental) |
 
 ### Verification legend
 
@@ -286,6 +288,68 @@ Normalization:
 
 ---
 
+## Qoder
+
+**Official docs:** <https://docs.qoder.com/account/pricing> (researched 2026-10-25)
+
+### Verified product facts (documented)
+
+- Lite is $10/month for 1,000 credits, Pro is $20/month for 2,000, Pro+ is
+  $60/month for 6,000, and Ultra is $200/month for 20,000.
+- Plan credits expire at the end of each billing period; add-on packs are $20
+  for 1,500 credits and remain valid for one month. The system consumes the
+  credits expiring soonest first.
+- The free tier offers limited basic-model access rather than the full agent.
+
+### Tracking interface (CLI panel, experimental)
+
+There is no documented public HTTP API for plan or add-on credit usage. After a
+one-time `qodercli login` on the TokenTracker host, the adapter drives the
+official CLI, opens `/usage`, and parses:
+
+- `Qoder Plan`
+- `Plan Expires At`
+- `Plan Credits Used: used/total`
+- `Add-on Credits Used: used/total` (or `N/A`)
+
+Plan credits become the monthly quota; add-on packs become an `Add-on credits`
+scope. No Qoder token is read or stored; the CLI owns its own session.
+TokenTracker uses a PTY helper (`scripts/qoder-cli-usage.py`) because the panel
+is only available interactively. The host needs `python3` with `pexpect`, plus
+`qodercli` on `PATH` or at `~/.local/bin/qodercli`.
+
+This route is gated behind `ENABLE_EXPERIMENTAL_ADAPTERS` and fails closed if the
+TUI changes. Free accounts report `0/0` plan credits and are shown as having no
+credits rather than a fabricated value; paid plans report monthly credits and
+add-on packs.
+
+## Yeta
+
+**Platform:** <https://platform.yeta.ai> (researched 2026-10-25)
+
+### Verified product facts (public status)
+
+- Yeta Platform is an OpenAI-compatible New API gateway. Its public status
+  reports `quota_display_type = USD` and a system name of "Yeta Platform".
+- Model requests use the OpenAI-compatible `/v1` surface; the user's configured
+  model is `koray-1.0`.
+- Yeta does not publish billing documentation, but the gateway exposes the
+  OpenAI legacy billing routes.
+
+### Tracking interface (experimental)
+
+```
+GET https://platform.yeta.ai/v1/dashboard/billing/subscription
+GET https://platform.yeta.ai/v1/dashboard/billing/usage
+Authorization: Bearer <YETA_API_KEY>
+```
+
+`hard_limit_usd` is the total quota; `total_usage` is reported in cents. The
+remaining balance is `hard_limit_usd - total_usage / 100`. TokenTracker records
+the remaining amount as a USD wallet credit and makes no inference calls. The
+route is not documented by Yeta, so it is gated behind
+`ENABLE_EXPERIMENTAL_ADAPTERS` and fails closed if the payload changes.
+
 ## Unsupported and deliberately excluded metrics
 
 | Metric | Reason |
@@ -294,6 +358,8 @@ Normalization:
 | TokenHarbor wallet / Pass usage | Not exposed by API; dashboard-only. Manual entry. |
 | River current balance | Not exposed by API; `402` is only a failure signal. Manual entry. |
 | Command Code per-model usage | Billing summary is account-aggregate only. |
+| Qoder HTTP usage API | No public endpoint; TokenTracker reads the official CLI /usage panel. |
+| Yeta per-model usage | Billing routes report account totals only. |
 | Any provider's session cookies | Explicitly out of scope; never collected or stored. |
 | Live token analytics | Not needed for quota tracking and not available from the meter routes. |
 

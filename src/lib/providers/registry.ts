@@ -4,6 +4,8 @@ import { OpenCodeGoAdapter } from "./opencode-go";
 import { CommandCodeAdapter } from "./commandcode";
 import { TokenHarborAdapter } from "./tokenharbor";
 import { RiverAiAdapter } from "./river-ai";
+import { QoderAdapter } from "./qoder";
+import { YetaAdapter } from "./yeta";
 import { PROVIDER_CATALOG } from "./catalog";
 import type { ProviderKey } from "../schemas";
 import { getEnv } from "../env";
@@ -27,6 +29,10 @@ export function createAdapter(provider: ProviderKey, ctx: AdapterContext): Provi
       return new TokenHarborAdapter(ctx);
     case "RIVER_AI":
       return new RiverAiAdapter(ctx);
+    case "QODER":
+      return new QoderAdapter(ctx);
+    case "YETA":
+      return new YetaAdapter(ctx);
     default: {
       const exhaustive: never = provider;
       throw new AdapterError("UNSUPPORTED", `Unknown provider ${String(exhaustive)}`);

@@ -32,7 +32,7 @@ export async function createAccount(input: {
   const now = new Date();
   const isLive = input.authMode === "LIVE";
 
-  if (isLive && !input.credential) {
+  if (isLive && !input.credential && input.provider !== "QODER") {
     throw new AppError("BAD_REQUEST", "A live connection requires an API key");
   }
 

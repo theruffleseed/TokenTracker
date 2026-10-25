@@ -1,8 +1,8 @@
 # TokenTracker
 
 Mobile-first dashboard for remaining AI subscription quota, credit balances, and
-reset countdowns. Built for **OpenCode Go**, **TokenHarbor**, **River AI**, and
-**Command Code**, with a provider-adapter architecture that accepts manual
+reset countdowns. Built for **OpenCode Go**, **TokenHarbor**, **River AI**,
+**Command Code**, **Qoder**, and **Yeta**, with a provider-adapter architecture that accepts manual
 snapshots wherever a vendor has no supported quota API.
 
 ![tests](https://img.shields.io/badge/tests-unit%20%2B%20integration%20%2B%20e2e-2ea44f)
@@ -47,11 +47,14 @@ snapshots wherever a vendor has no supported quota API.
 
 ### Honest sourcing
 
-Only OpenCode Go and Command Code expose per-window quota meters today, and both
-are community-observed routes rather than documented public APIs. They are
-disabled by default. TokenHarbor and River AI have **no** documented balance API,
-so they are validated live but tracked manually or through the usage gateway.
-Full evidence, endpoint shapes, and open verification gaps are in
+Only OpenCode Go, Command Code, and Qoder expose quota meters today, and none is
+a documented public API. OpenCode Go and Command Code use community-observed
+routes; Qoder is read from the official CLI `/usage` panel after a one-time
+`qodercli login`. Yeta exposes its prepaid USD balance through the
+OpenAI-compatible billing endpoints on its New API gateway. All four are
+disabled by default. TokenHarbor and River AI have **no** documented balance
+API, so they are validated live but tracked manually or through the usage
+gateway. Full evidence, endpoint shapes, and open verification gaps are in
 [`docs/provider-capability-matrix.md`](docs/provider-capability-matrix.md).
 
 The gateway is not a vendor meter. It sees only requests whose base URL points
@@ -100,8 +103,11 @@ npm run worker          # second terminal: scheduled refreshes
 ```
 
 Create an account at `/register`, then choose a provider. For TokenHarbor and
-River AI, choose **Manual tracking**; for OpenCode Go and Command Code you can
-use a live key once `ENABLE_EXPERIMENTAL_ADAPTERS=true`.
+River AI, choose **Manual tracking**. For OpenCode Go, Command Code, and Yeta,
+use a live key once `ENABLE_EXPERIMENTAL_ADAPTERS=true`. For Qoder, run
+`qodercli login` once on the host (the CLI panel reader also needs `python3` and
+`pexpect`), then add Qoder as a live connection; no key is stored and
+plan/add-on credits refresh on schedule.
 
 No demo accounts or fake balances are seeded. `npm run db:seed` with
 `SEED_EMAIL`/`SEED_PASSWORD` only provisions an empty user.
@@ -184,13 +190,17 @@ Details, threat model, and limits: [`docs/security.md`](docs/security.md).
 
 ## Known limitations
 
-- No real provider keys were available during development. The two experimental
-  quota parsers are contract-tested against synthetic fixtures, not
-  account-tested. They fail closed with diagnostics if the payload changes.
+- No real provider keys were available during development. The four experimental
+  adapters (OpenCode Go, Command Code, Qoder, Yeta) are contract-tested against
+  synthetic fixtures, not account-tested. Qoder drives the official CLI `/usage`
+  TUI, which can change between CLI releases. Yeta reads OpenAI-compatible
+  billing routes exposed by its gateway; these are not documented by Yeta.
+  Free Qoder accounts report 0/0 plan credits. All fail closed with diagnostics
+  rather than guessing.
 - Web Push notifications and background sync are not implemented.
 - Rate limiting is in-process; scale-out needs an edge/shared limiter.
 - Usage history ingestion exists in the schema and adapter contract, but none of
-  the four providers exposes a per-record history API today. The gateway fills
+  the six providers exposes a per-record history API today. The gateway fills
   this gap only for traffic routed through it; direct vendor traffic is
   invisible, and list-price estimates can differ from the invoice.
 - Capacitor requires pointing the wrapper at a deployed HTTPS instance; there is

@@ -193,7 +193,7 @@ export async function executeJob(job: RefreshJob): Promise<RefreshOutcome> {
 
   try {
     const credential = await decryptAccountCredential(account);
-    if (!credential) {
+    if (!credential && account.provider !== "QODER") {
       throw new AdapterError("NOT_CONFIGURED", "No credential is stored for this connection");
     }
 

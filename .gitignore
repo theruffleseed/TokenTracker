@@ -50,3 +50,6 @@ pnpm-debug.log*
 # misc
 *.tsbuildinfo
 /tmp/
+.jdk21/
+*.apk
+.deploy/

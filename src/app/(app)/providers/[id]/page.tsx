@@ -15,6 +15,8 @@ import {
 import { Icon } from "@/components/icons";
 import { ProviderActions } from "@/components/ProviderActions";
 import { ManualForms } from "@/components/ManualForms";
+import { QuickBalanceForm } from "@/components/QuickBalanceForm";
+import { QuickQuotaForm } from "@/components/QuickQuotaForm";
 import { TokenHarborCsvImport } from "@/components/TokenHarborCsvImport";
 import { ConnectionSettings } from "@/components/ConnectionSettings";
 import { GatewayEndpoints } from "@/components/GatewayEndpoints";
@@ -335,6 +337,22 @@ export default async function ProviderDetailPage({
                 </p>
               </div>
             </div>
+            {account.authMode === "MANUAL" ? (
+              <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2">
+                {account.provider === "TOKENHARBOR" ? (
+                  <QuickQuotaForm
+                    accountId={account.id}
+                    variant="inline"
+                    triggerLabel="Add weekly usage"
+                  />
+                ) : null}
+                <QuickBalanceForm
+                  accountId={account.id}
+                  variant="inline"
+                  triggerLabel={primaryCredit ? "Update balance" : "Add balance"}
+                />
+              </div>
+            ) : null}
             {account.provider === "TOKENHARBOR" ? (
               <div className="mb-4">
                 <TokenHarborCsvImport accountId={account.id} />
@@ -512,6 +530,7 @@ export default async function ProviderDetailPage({
 
           <ConnectionSettings
             accountId={account.id}
+            provider={account.provider}
             displayName={account.displayName}
             planName={account.planName}
             accountLabel={account.accountLabel}
